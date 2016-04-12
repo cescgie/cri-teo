@@ -1,6 +1,9 @@
 <?php
 
-include 'env.php';
+require 'env.php';
+require 'Storage.php';
+error_reporting( error_reporting() & ~E_NOTICE );
+
 /**
   * Get a web file (HTML, XHTML, XML, image, etc.) from a URL.  Return an
   * array containing the HTTP server response header fields and content.
@@ -122,7 +125,10 @@ function access($url){
 /**
 *login and access destination page
 */
-function execute($url){
+function execute($datum,$url){
+  //connect to database
+  $_db = new Storage();
+
   $htmlContent = access($url);
 
   $dom = new \DOMDocument('1.0', 'UTF-8');
@@ -141,11 +147,11 @@ function execute($url){
   //get all rows from the table
   $rows = $tables->item(0)->getElementsByTagName('tr');
 
-  // get each column by tag name
+  //get each column by tag name
   $cols = $rows->item(0)->getElementsByTagName('th');
   $row_headers = NULL;
   foreach ($cols as $node) {
-      $row_headers[] = $node->nodeValue;
+      $row_headers[] = trim($node->nodeValue);
   }
 
   $table = array();
@@ -158,11 +164,11 @@ function execute($url){
       $row = array();
       $i=0;
       foreach ($cols as $node) {
-          $newstr = filter_var($node->nodeValue, FILTER_SANITIZE_STRING,FILTER_FLAG_STRIP_HIGH);
+          $newstr = str_replace('.','',filter_var($node->nodeValue, FILTER_SANITIZE_STRING,FILTER_FLAG_STRIP_HIGH));
           if($row_headers==NULL)
-              $row[] = $newstr;
+              $row[] = trim($newstr);
           else
-              $row[$row_headers[$i]] = $newstr;
+              $row[$row_headers[$i]] = trim($newstr);
           $i++;
       }
       $table[] = $row;
@@ -173,14 +179,35 @@ function execute($url){
   * $i = 1 => Total
   */
   for ($i=1; $i <=count($table) ; $i++) {
+    unset($daten);
     if($i!=1 && isset($table[$i])) {
-      foreach ($table[$i] as $key => $value) {
-        $key = trim($key);
-        echo '<pre>';
-        if($key=='Name' || $key=='Impr.' || $key=='Clicks'){
-          echo $key.' : '.$value;
-        }
-        echo '<pre>';
+      $auftrag = $table[$i]['Name'];
+      $impr = $table[$i]['Impr.'];
+      $click = $table[$i]['Clicks'];
+      $select = $_db->select("SELECT Auftragsnummer,Auftragsposition,id_extern FROM absolutebusy.gregtool_auftrag_position WHERE LENGTH(id_extern) > 3 AND LOCATE('".trim($auftrag)."',id_extern)>0 AND ende >= '".$datum."'");
+
+      if($select){
+        echo "\n\nAuftrag : ".$auftrag."\n";
+        $daten[$select[0]['Auftragsnummer']."_".$select[0]['Auftragsposition']]["impressions"] += $impr;
+        $daten[$select[0]['Auftragsnummer']."_".$select[0]['Auftragsposition']]["clicks"] += $click;
+      }
+
+      if(isset($daten))
+			foreach($daten AS $key => $data)
+			{
+				$auftrag = explode("_",$key);
+
+				$diffimp_ad = $data["impressions"];
+				$diffclick_ad = $data["clicks"];
+
+				$Auftragsnummer=$auftrag[0];
+				$Auftragsposition=$auftrag[1];
+
+        echo "Auftragsnummer : ". $Auftragsnummer."\n";
+        echo "Auftragsposition : ". $Auftragsposition."\n";
+        echo "diffimp_ad : ". $diffimp_ad."\n";
+        echo "diffclick_ad : ". $diffclick_ad."\n";
+
       }
     }
   }
@@ -207,7 +234,8 @@ function init(){
   $_min3_date = $result_date->format('Y-m-d');
   $tag['_min3_date'] = $_min3_date;
 
-  echo "Netpoint Media DE\n\n";
+  echo "<pre>";
+  echo "=========Netpoint Media DE===========\n";
   foreach ($tag as $key => $date) {
     $exec_date = new DateTime($date);
     $begindate = $exec_date->format('Y-m-d');
@@ -216,12 +244,11 @@ function init(){
 
     $url_netpoint = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dAffiliate%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d119%3faccountid%3d1040&breakdown=Affiliate&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=119&accountid=1040';
     echo "\n\n++++++++ Datum : ".$date." ++++++++";
-    execute($url_netpoint);
+    execute($current_date,$url_netpoint);
   }
 
-  echo "\n\n++++++++++++++++++++++++++++++++++++++++";
-
-  echo "\n\nNetpoint Media DE RTA";
+  echo "\n\n\n\n++++++++++++++++++++++++++++++++++++++++\n\n\n\n";
+  echo "=========Netpoint Media DE RTA=========";
   foreach ($tag as $key => $date) {
     $exec_date = new DateTime($date);
     $begindate = $exec_date->format('Y-m-d');
@@ -230,12 +257,13 @@ function init(){
 
     $url_netpoint_rta = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dZone%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d1329%3faccountid%3d26055&breakdown=Zone&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=1329&accountid=26055';
     echo "\n\n++++++++ Datum : ".$date." ++++++++";
-    execute($url_netpoint_rta);
+    execute($current_date,$url_netpoint_rta);
   }
+  echo '</pre>';
 }
 
 /**
-* App
+* App starten
 */
 init();
 
