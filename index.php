@@ -3,7 +3,9 @@
 require 'env.php';
 require 'Storage.php';
 error_reporting( error_reporting() & ~E_NOTICE );
+date_default_timezone_set('Europe/Berlin');
 
+$double_auftrag = '';
 /**
   * Get a web file (HTML, XHTML, XML, image, etc.) from a URL.  Return an
   * array containing the HTTP server response header fields and content.
@@ -125,7 +127,7 @@ function access($url){
 /**
 *login and access destination page
 */
-function execute($datum,$url){
+function execute($datum,$url,$forDate){
   //connect to database
   $_db = new Storage();
 
@@ -186,8 +188,20 @@ function execute($datum,$url){
       $click = $table[$i]['Clicks'];
       $select = $_db->select("SELECT Auftragsnummer,Auftragsposition,id_extern FROM absolutebusy.gregtool_auftrag_position WHERE LENGTH(id_extern) > 3 AND LOCATE('".trim($auftrag)."',id_extern)>0 AND ende >= '".$datum."'");
 
+      $double_imp_ad = '';
+      $double_click_ad = '';
       if($select){
         echo "\n\nAuftrag : ".$auftrag."\n";
+        //get value from imp_ad & click_ad if double Auftragsnummer & Auftragsposition
+        if($double_auftrag['Auftragsnummer'] == $select[0]['Auftragsnummer'] && $double_auftrag['Auftragsposition'] == $select[0]['Auftragsposition']){
+          $select_gregtool_erfuellung_1 = $_db->select("SELECT * FROM gregtool_erfuellung
+  				WHERE Auftragsnummer='".$double_auftrag['Auftragsnummer']."'
+  				AND Auftragsposition='".$double_auftrag['Auftragsposition']."'
+  				AND DATE_ADD(datum, INTERVAL 0 DAY) = '".$forDate."'");
+
+          $double_imp_ad = $select_gregtool_erfuellung_1[0]['imp_ad'];
+          $double_click_ad = $select_gregtool_erfuellung_1[0]['click_ad'];
+        }
         $daten[$select[0]['Auftragsnummer']."_".$select[0]['Auftragsposition']]["impressions"] += $impr;
         $daten[$select[0]['Auftragsnummer']."_".$select[0]['Auftragsposition']]["clicks"] += $click;
       }
@@ -207,8 +221,32 @@ function execute($datum,$url){
         echo "Auftragsposition : ". $Auftragsposition."\n";
         echo "diffimp_ad : ". $diffimp_ad."\n";
         echo "diffclick_ad : ". $diffclick_ad."\n";
+        echo "forDate : ".$forDate."\n";
 
+        $select_gregtool_erfuellung_2 = $_db->select("SELECT * FROM gregtool_erfuellung
+				WHERE Auftragsnummer='".$Auftragsnummer."'
+				AND Auftragsposition='".$Auftragsposition."'
+				AND DATE_ADD(datum, INTERVAL +1 DAY) = '".$forDate."'");
+
+        //check double Auftragsnummer and Auftragsposition and set corrected imp_ad, click_ad
+        if($double_auftrag['Auftragsnummer'] == $Auftragsnummer && $double_auftrag['Auftragsposition'] ==$Auftragsposition){
+          $update_data_erfullung['imp_ad'] = $diffimp_ad+$double_impr_ad;
+          $update_data_erfullung['click_ad'] = $diffclick_ad+$double_click_ad;
+        }else{
+          $update_data_erfullung['imp_ad'] = $select_gregtool_erfuellung_2[0]['imp_ad']+$diffimp_ad;
+          $update_data_erfullung['click_ad'] = $select_gregtool_erfuellung_2[0]['click_ad']+$diffclick_ad;
+        }
+
+        //update column imp_ad and click_ad in gregtool_erfuellung
+        $where = "Auftragsnummer='".$Auftragsnummer."' AND Auftragsposition='".$Auftragsposition."' AND datum= '".$forDate."'";
+        $update_gregtool_erfuellung = $_db->update("gregtool_erfuellung",$update_data_erfullung,$where);
+
+        //update column erfdat in gregtool_auftrag_position
+        $update_data_erfdat['erfdat'] = date("Y-m-d",strtotime($forDate)+86400);
+        $where_erfdat = "Auftragsnummer='".$Auftragsnummer."' AND Auftragsposition='".$Auftragsposition."'";
+        $update_gregtool_auftrag_position = $_db->update('gregtool_auftrag_position',$update_data_erfdat,$where_erfdat);
       }
+      $double_auftrag = array('Auftragsnummer'  => $select[0]['Auftragsnummer'],'Auftragsposition'=>$select[0]['Auftragsposition']);
     }
   }
 
@@ -221,19 +259,21 @@ function init(){
   */
   $current_date = date('Y-m-d');
   $result_date = new DateTime($current_date);
-
-  $result_date->modify('-1 day');
-  $_min1_date = $result_date->format('Y-m-d');
-  $tag['_min1_date'] = $_min1_date;
-
-  $result_date->modify('-1 day');
-  $_min2_date = $result_date->format('Y-m-d');
-  $tag['_min2_date'] = $_min2_date;
-
-  $result_date->modify('-1 day');
+  $result_date->modify('-3 day');
   $_min3_date = $result_date->format('Y-m-d');
   $tag['_min3_date'] = $_min3_date;
 
+  $current_date = date('Y-m-d');
+  $result_date = new DateTime($current_date);
+  $result_date->modify('-2 day');
+  $_min2_date = $result_date->format('Y-m-d');
+  $tag['_min2_date'] = $_min2_date;
+
+  $current_date = date('Y-m-d');
+  $result_date = new DateTime($current_date);
+  $result_date->modify('-1 day');
+  $_min1_date = $result_date->format('Y-m-d');
+  $tag['_min1_date'] = $_min1_date;
   echo "<pre>";
   echo "=========Netpoint Media DE===========\n";
   foreach ($tag as $key => $date) {
@@ -244,7 +284,7 @@ function init(){
 
     $url_netpoint = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dAffiliate%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d119%3faccountid%3d1040&breakdown=Affiliate&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=119&accountid=1040';
     echo "\n\n++++++++ Datum : ".$date." ++++++++";
-    execute($current_date,$url_netpoint);
+    execute($current_date,$url_netpoint,$date);
   }
 
   echo "\n\n\n\n++++++++++++++++++++++++++++++++++++++++\n\n\n\n";
@@ -257,7 +297,7 @@ function init(){
 
     $url_netpoint_rta = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dZone%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d1329%3faccountid%3d26055&breakdown=Zone&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=1329&accountid=26055';
     echo "\n\n++++++++ Datum : ".$date." ++++++++";
-    execute($current_date,$url_netpoint_rta);
+    execute($current_date,$url_netpoint_rta,$date);
   }
   echo '</pre>';
 }
