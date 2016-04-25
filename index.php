@@ -230,7 +230,7 @@ function execute($datum,$url,$forDate){
 
         //check double Auftragsnummer and Auftragsposition and set corrected imp_ad, click_ad
         if($double_auftrag['Auftragsnummer'] == $Auftragsnummer && $double_auftrag['Auftragsposition'] ==$Auftragsposition){
-          $update_data_erfullung['imp_ad'] = $diffimp_ad+$double_impr_ad;
+          $update_data_erfullung['imp_ad'] = $diffimp_ad+$double_imp_ad;
           $update_data_erfullung['click_ad'] = $diffclick_ad+$double_click_ad;
         }else{
           $update_data_erfullung['imp_ad'] = $select_gregtool_erfuellung_2[0]['imp_ad']+$diffimp_ad;
