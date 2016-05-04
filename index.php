@@ -239,13 +239,35 @@ function execute($datum,$url,$forDate){
 
         //update column imp_ad and click_ad in gregtool_erfuellung
         $where = "Auftragsnummer='".$Auftragsnummer."' AND Auftragsposition='".$Auftragsposition."' AND datum= '".$forDate."'";
-        $update_gregtool_erfuellung = $_db->update("gregtool_erfuellung",$update_data_erfullung,$where);
+
+        $check_exists = $_db->select("SELECT count(*) as count FROM gregtool_erfuellung WHERE $where");
+        if($check_exists[0]['count']==1){
+          $update_gregtool_erfuellung = $_db->update("gregtool_erfuellung",$update_data_erfullung,$where);
+        }else{
+          $select_from_absolute = $_db->select("SELECT * FROM absolutebusy.gregtool_erfuellung WHERE $where");
+          if ($select_from_absolute[0]!=0) {
+            $insert_data_erfullung['Auftragsnummer'] = $select_from_absolute[0]['Auftragsnummer'];
+            $insert_data_erfullung['Auftragsposition'] = $select_from_absolute[0]['Auftragsposition'];
+            $insert_data_erfullung['imp_iq'] = $select_from_absolute[0]['imp_iq'];
+            $insert_data_erfullung['view_iq'] = $select_from_absolute[0]['view_iq'];
+            $insert_data_erfullung['click_iq'] = $select_from_absolute[0]['click_iq'];
+            $insert_data_erfullung['imp_ad'] = $update_data_erfullung['imp_ad']; //!!!
+            $insert_data_erfullung['click_ad'] = $update_data_erfullung['click_ad']; //!!!
+            $insert_data_erfullung['imp_np'] = $select_from_absolute[0]['imp_np'];
+            $insert_data_erfullung['click_np'] = $select_from_absolute[0]['click_np'];
+            $insert_data_erfullung['view_np'] = $select_from_absolute[0]['view_np'];
+            $insert_data_erfullung['datum'] = $select_from_absolute[0]['datum'];
+
+            $insert_gregtool_erfuellung = $_db->insert('gregtool_erfuellung',$insert_data_erfullung);
+          }
+        }
 
         //update column erfdat in gregtool_auftrag_position
         $update_data_erfdat['erfdat'] = date("Y-m-d",strtotime($forDate)+86400);
         $where_erfdat = "Auftragsnummer='".$Auftragsnummer."' AND Auftragsposition='".$Auftragsposition."'";
         $update_gregtool_auftrag_position = $_db->update('gregtool_auftrag_position',$update_data_erfdat,$where_erfdat);
       }
+      //set an array on purpose to check auftrag with same Auftragsnummer and Auftragsposition
       $double_auftrag = array('Auftragsnummer'  => $select[0]['Auftragsnummer'],'Auftragsposition'=>$select[0]['Auftragsposition']);
     }
   }
@@ -254,22 +276,24 @@ function execute($datum,$url,$forDate){
 }
 
 function init(){
-  /**
-  * 3 letzte Tage
-  */
-  $current_date = date('Y-m-d');
+  // /**
+  // * 3 letzte Tage
+  // */
+  $datum =  Date('Y-m-d');
+
+  $current_date = $datum;
   $result_date = new DateTime($current_date);
   $result_date->modify('-3 day');
   $_min3_date = $result_date->format('Y-m-d');
   $tag['_min3_date'] = $_min3_date;
 
-  $current_date = date('Y-m-d');
+  $current_date = $datum;
   $result_date = new DateTime($current_date);
   $result_date->modify('-2 day');
   $_min2_date = $result_date->format('Y-m-d');
   $tag['_min2_date'] = $_min2_date;
 
-  $current_date = date('Y-m-d');
+  $current_date = $datum;
   $result_date = new DateTime($current_date);
   $result_date->modify('-1 day');
   $_min1_date = $result_date->format('Y-m-d');
