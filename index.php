@@ -262,6 +262,24 @@ function execute($datum,$url,$forDate){
           }
         }
 
+        $where2 = "datum= '".$forDate."' AND (imp_ad = '0' OR click_ad = '0')";
+        $check_null = $_db->select("SELECT count(*) as count FROM gregtool_erfuellung WHERE $where2");
+        if($check_null[0]['count']==1){
+          $where4 = "datum= '".$forDate."' AND (imp_ad = '0' OR click_ad = '0')";
+          $select_null_data_erfuellung = $_db->select("SELECT Auftragsnummer,Auftragsposition FROM gregtool_erfuellung WHERE $where4");
+
+          $beforeday = date('Y-m-d', strtotime('-1 day', strtotime($forDate)));
+          $where5 = "datum= '".$beforeday."' AND Auftragsnummer='".$select_null_data_erfuellung[0]['Auftragsnummer']."' AND Auftragsposition='".$select_null_data_erfuellung[0]['Auftragsposition']."'";
+          $select_beforeday_null_data_erfuellung = $_db->select("SELECT Auftragsnummer,Auftragsposition,imp_ad,click_ad FROM gregtool_erfuellung WHERE $where5");
+          $Auftragsnummer3 = $select_beforeday_null_data_erfuellung[0]['Auftragsnummer'];
+          $Auftragsposition3 = $select_beforeday_null_data_erfuellung[0]['Auftragsposition'];
+          $update_null_data['imp_ad'] = $select_beforeday_null_data_erfuellung[0]['imp_ad'];
+          $update_null_data['click_ad'] = $select_beforeday_null_data_erfuellung[0]['click_ad'];
+
+          $where3 = "Auftragsnummer='".$Auftragsnummer3."' AND Auftragsposition='".$Auftragsposition3."' AND datum= '".$forDate."'";
+          $update_null_erfuellung = $_db->update("gregtool_erfuellung",$update_null_data,$where3);
+        }
+
         //update column erfdat in gregtool_auftrag_position
         $update_data_erfdat['erfdat'] = date("Y-m-d",strtotime($forDate)+86400);
         $where_erfdat = "Auftragsnummer='".$Auftragsnummer."' AND Auftragsposition='".$Auftragsposition."'";
@@ -280,50 +298,57 @@ function init(){
   // * 3 letzte Tage
   // */
   $datum =  Date('Y-m-d');
+  // $begin = new DateTime('2016-02-10');
+  // $end = new DateTime('2016-02-29');
+  // $daterange = new DatePeriod($begin, new DateInterval('P1D'), $end);
+  // foreach($daterange as $date){
+  //   echo $date->format("Y-m-d") . "<br>";
+  //   $datum = $date->format("Y-m-d") ;
 
-  $current_date = $datum;
-  $result_date = new DateTime($current_date);
-  $result_date->modify('-3 day');
-  $_min3_date = $result_date->format('Y-m-d');
-  $tag['_min3_date'] = $_min3_date;
+    $current_date = $datum;
+    $result_date = new DateTime($current_date);
+    $result_date->modify('-3 day');
+    $_min3_date = $result_date->format('Y-m-d');
+    $tag['_min3_date'] = $_min3_date;
 
-  $current_date = $datum;
-  $result_date = new DateTime($current_date);
-  $result_date->modify('-2 day');
-  $_min2_date = $result_date->format('Y-m-d');
-  $tag['_min2_date'] = $_min2_date;
+    $current_date = $datum;
+    $result_date = new DateTime($current_date);
+    $result_date->modify('-2 day');
+    $_min2_date = $result_date->format('Y-m-d');
+    $tag['_min2_date'] = $_min2_date;
 
-  $current_date = $datum;
-  $result_date = new DateTime($current_date);
-  $result_date->modify('-1 day');
-  $_min1_date = $result_date->format('Y-m-d');
-  $tag['_min1_date'] = $_min1_date;
-  echo "<pre>";
-  echo "=========Netpoint Media DE===========\n";
-  foreach ($tag as $key => $date) {
-    $exec_date = new DateTime($date);
-    $begindate = $exec_date->format('Y-m-d');
-    $exec_date->modify('+1 day');
-    $enddate = $exec_date->format('Y-m-d');
+    $current_date = $datum;
+    $result_date = new DateTime($current_date);
+    $result_date->modify('-1 day');
+    $_min1_date = $result_date->format('Y-m-d');
+    $tag['_min1_date'] = $_min1_date;
+    echo "<pre>";
+    echo "=========Netpoint Media DE===========\n";
+    foreach ($tag as $key => $date) {
+      $exec_date = new DateTime($date);
+      $begindate = $exec_date->format('Y-m-d');
+      $exec_date->modify('+1 day');
+      $enddate = $exec_date->format('Y-m-d');
 
-    $url_netpoint = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dAffiliate%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d119%3faccountid%3d1040&breakdown=Affiliate&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=119&accountid=1040';
-    echo "\n\n++++++++ Datum : ".$date." ++++++++";
-    execute($current_date,$url_netpoint,$date);
-  }
+      $url_netpoint = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dAffiliate%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d119%3faccountid%3d1040&breakdown=Affiliate&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=119&accountid=1040';
+      echo "\n\n++++++++ Datum : ".$date." ++++++++";
+      execute($current_date,$url_netpoint,$date);
+    }
 
-  echo "\n\n\n\n++++++++++++++++++++++++++++++++++++++++\n\n\n\n";
-  echo "=========Netpoint Media DE RTA=========";
-  foreach ($tag as $key => $date) {
-    $exec_date = new DateTime($date);
-    $begindate = $exec_date->format('Y-m-d');
-    $exec_date->modify('+1 day');
-    $enddate = $exec_date->format('Y-m-d');
+    echo "\n\n\n\n++++++++++++++++++++++++++++++++++++++++\n\n\n\n";
+    echo "=========Netpoint Media DE RTA=========";
+    foreach ($tag as $key => $date) {
+      $exec_date = new DateTime($date);
+      $begindate = $exec_date->format('Y-m-d');
+      $exec_date->modify('+1 day');
+      $enddate = $exec_date->format('Y-m-d');
 
-    $url_netpoint_rta = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dZone%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d1329%3faccountid%3d26055&breakdown=Zone&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=1329&accountid=26055';
-    echo "\n\n++++++++ Datum : ".$date." ++++++++";
-    execute($current_date,$url_netpoint_rta,$date);
-  }
-  echo '</pre>';
+      $url_netpoint_rta = 'https://advertising.criteo.com/login.aspx?ReturnUrl=%2fstats%2fdefault.aspx%3fbreakdown%3dZone%26history%3dNA%26period%3dYesterday%26begindate%3d'.$begindate.'%26enddate%3d'.$enddate.'%26useIncompleteStats%3dFalse%26networkid%3d1329%3faccountid%3d26055&breakdown=Zone&history=NA&period=Yesterday&begindate='.$begindate.'&enddate='.$enddate.'&useIncompleteStats=False&networkid=1329&accountid=26055';
+      echo "\n\n++++++++ Datum : ".$date." ++++++++";
+      execute($current_date,$url_netpoint_rta,$date);
+    }
+    echo '</pre>';
+  // }
 }
 
 /**
