@@ -298,13 +298,6 @@ function init(){
   // * 3 letzte Tage
   // */
   $datum =  Date('Y-m-d');
-  // $begin = new DateTime('2016-02-10');
-  // $end = new DateTime('2016-02-29');
-  // $daterange = new DatePeriod($begin, new DateInterval('P1D'), $end);
-  // foreach($daterange as $date){
-  //   echo $date->format("Y-m-d") . "<br>";
-  //   $datum = $date->format("Y-m-d") ;
-
     $current_date = $datum;
     $result_date = new DateTime($current_date);
     $result_date->modify('-3 day');
@@ -322,6 +315,12 @@ function init(){
     $result_date->modify('-1 day');
     $_min1_date = $result_date->format('Y-m-d');
     $tag['_min1_date'] = $_min1_date;
+
+    $current_date = $datum;
+    $result_date = new DateTime($current_date);
+    $_min0_date = $result_date->format('Y-m-d');
+    $tag['_min0_date'] = $_min0_date;
+
     echo "<pre>";
     echo "=========Netpoint Media DE===========\n";
     foreach ($tag as $key => $date) {
@@ -348,7 +347,6 @@ function init(){
       execute($current_date,$url_netpoint_rta,$date);
     }
     echo '</pre>';
-  // }
 }
 
 /**
